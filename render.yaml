@@ -8,3 +8,5 @@ services:
     envVars:
       - key: API_FOOTBALL_KEY
         sync: false
+      - key: PORT
+        value: 10000
