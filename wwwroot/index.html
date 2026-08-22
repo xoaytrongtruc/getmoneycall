@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lịch thi đấu hôm nay</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>⚽ Lịch thi đấu hôm nay</h1>
+    <p class="legend"><span class="dot green"></span> Tổng bàn thắng &lt; 2.5 &nbsp;&nbsp; <span class="dot red"></span> Tổng bàn thắng &gt; 2.5</p>
+    <div class="tabs">
+      <button id="tab-all" class="tab active">Tất cả trận</button>
+      <button id="tab-hot">🔥 Trận đáng chú ý (chênh lệch ≥ 3)</button>
+    </div>
+    <label id="upcoming-only-wrap" class="upcoming-toggle hidden">
+      <input type="checkbox" id="upcoming-only" />
+      Chỉ hiện trận chưa diễn ra
+    </label>
+  </header>
+
+  <main>
+    <section id="fixture-list" aria-label="Danh sách trận đấu hôm nay"></section>
+    <section id="hot-list" class="hidden" aria-label="Trận đáng chú ý"></section>
+  </main>
+
+  <div id="overlay" class="overlay hidden">
+    <div class="modal">
+      <button id="close-modal" class="close-btn" aria-label="Đóng">✕</button>
+      <div id="modal-content"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
