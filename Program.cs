@@ -77,12 +77,12 @@ var apiCallLimiter = new SemaphoreSlim(maxConcurrentApiCalls);
 
 var teamHistoryCache = new ConcurrentDictionary<int, CacheEntry<List<MatchDto>>>();
 var h2hCache = new ConcurrentDictionary<string, CacheEntry<List<MatchDto>>>();
-var todayFixturesCache = new CacheEntry<List<FixtureResult>>?[1];
-var todayFixturesLock = new SemaphoreSlim(1);
+var fixturesByDayCache = new ConcurrentDictionary<string, CacheEntry<List<FixtureResult>>>();
+var fixturesByDayLock = new SemaphoreSlim(1);
 
-app.MapGet("/api/fixtures/today", async (IHttpClientFactory factory) =>
+app.MapGet("/api/fixtures/today", async (IHttpClientFactory factory, int dayOffset) =>
 {
-    var fixtures = await GetTodayFixturesAsync(factory);
+    var fixtures = await GetFixturesForDayAsync(factory, dayOffset);
     var dto = fixtures
         .OrderBy(f => f.Fixture.Date)
         .Select(f => new
@@ -129,9 +129,10 @@ app.MapGet("/api/matchup/{fixtureId:int}", async (int fixtureId, IHttpClientFact
     });
 });
 
-// Server-Sent Events: quét các trận thuộc giải đấu lớn hôm nay, báo tiến độ và trả về
-// từng trận thỏa điều kiện "1 trong 3 bảng có chênh lệch đỏ/xanh >= 3" ngay khi tính xong.
-app.MapGet("/api/hot-matches/stream", async (HttpContext ctx, IHttpClientFactory factory, bool upcomingOnly) =>
+// Server-Sent Events: quét các trận thuộc giải đấu lớn trong ngày được chọn (dayOffset:
+// 0 = hôm nay, 1 = ngày mai...), báo tiến độ và trả về từng trận thỏa điều kiện
+// "1 trong 3 bảng có chênh lệch đỏ/xanh >= 3" ngay khi tính xong.
+app.MapGet("/api/hot-matches/stream", async (HttpContext ctx, IHttpClientFactory factory, bool upcomingOnly, int dayOffset) =>
 {
     ctx.Response.Headers.ContentType = "text/event-stream";
     ctx.Response.Headers.CacheControl = "no-cache";
@@ -145,7 +146,7 @@ app.MapGet("/api/hot-matches/stream", async (HttpContext ctx, IHttpClientFactory
     }
 
     var http = factory.CreateClient("football");
-    var allFixtures = await GetTodayFixturesAsync(factory);
+    var allFixtures = await GetFixturesForDayAsync(factory, dayOffset);
     var candidates = allFixtures
         .Where(f => majorLeagueIds.Contains(f.League.Id))
         .Where(f => !upcomingOnly || f.Fixture.Status?.Short == "NS")
@@ -224,29 +225,28 @@ static string ReadApiFootballKey()
         "Chưa có API-Football key. Đặt biến môi trường API_FOOTBALL_KEY, hoặc tạo file apifootball_key.txt (cùng thư mục project) chứa key.");
 }
 
-async Task<List<FixtureResult>> GetTodayFixturesAsync(IHttpClientFactory factory)
+async Task<List<FixtureResult>> GetFixturesForDayAsync(IHttpClientFactory factory, int dayOffset)
 {
-    var cached = todayFixturesCache[0];
-    if (cached is not null && DateTime.UtcNow - cached.FetchedAt < TimeSpan.FromMinutes(2))
+    var targetDate = DateTime.UtcNow.AddHours(7).AddDays(dayOffset).ToString("yyyy-MM-dd"); // Asia/Ho_Chi_Minh is UTC+7
+
+    if (fixturesByDayCache.TryGetValue(targetDate, out var cached) && DateTime.UtcNow - cached.FetchedAt < TimeSpan.FromMinutes(2))
         return cached.Data;
 
-    await todayFixturesLock.WaitAsync();
+    await fixturesByDayLock.WaitAsync();
     try
     {
-        cached = todayFixturesCache[0];
-        if (cached is not null && DateTime.UtcNow - cached.FetchedAt < TimeSpan.FromMinutes(2))
+        if (fixturesByDayCache.TryGetValue(targetDate, out cached) && DateTime.UtcNow - cached.FetchedAt < TimeSpan.FromMinutes(2))
             return cached.Data;
 
         var http = factory.CreateClient("football");
-        var today = DateTime.UtcNow.AddHours(7).ToString("yyyy-MM-dd"); // Asia/Ho_Chi_Minh is UTC+7
         var fixtures = await CallApiAsync<FixtureResult>(http,
-            $"/fixtures?date={today}&timezone={Uri.EscapeDataString(Timezone)}");
-        todayFixturesCache[0] = new CacheEntry<List<FixtureResult>>(fixtures, DateTime.UtcNow);
+            $"/fixtures?date={targetDate}&timezone={Uri.EscapeDataString(Timezone)}");
+        fixturesByDayCache[targetDate] = new CacheEntry<List<FixtureResult>>(fixtures, DateTime.UtcNow);
         return fixtures;
     }
     finally
     {
-        todayFixturesLock.Release();
+        fixturesByDayLock.Release();
     }
 }
 

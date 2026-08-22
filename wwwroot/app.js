@@ -2,11 +2,15 @@ const listEl = document.getElementById("fixture-list");
 const hotListEl = document.getElementById("hot-list");
 const tabAll = document.getElementById("tab-all");
 const tabHot = document.getElementById("tab-hot");
+const dayToday = document.getElementById("day-today");
+const dayTomorrow = document.getElementById("day-tomorrow");
+const pageTitle = document.getElementById("page-title");
 const upcomingOnlyWrap = document.getElementById("upcoming-only-wrap");
 const upcomingOnlyCheckbox = document.getElementById("upcoming-only");
 const overlay = document.getElementById("overlay");
 const modalContent = document.getElementById("modal-content");
 let currentHotSource = null;
+let dayOffset = 0;
 
 document.getElementById("close-modal").addEventListener("click", closeModal);
 overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
@@ -29,6 +33,23 @@ function escapeHtml(s) {
 
 tabAll.addEventListener("click", () => switchTab("all"));
 tabHot.addEventListener("click", () => switchTab("hot"));
+dayToday.addEventListener("click", () => switchDay(0));
+dayTomorrow.addEventListener("click", () => switchDay(1));
+
+function switchDay(offset) {
+  if (offset === dayOffset) return;
+  dayOffset = offset;
+  dayToday.classList.toggle("active", offset === 0);
+  dayTomorrow.classList.toggle("active", offset === 1);
+  pageTitle.textContent = offset === 0 ? "⚽ Lịch thi đấu hôm nay" : "⚽ Lịch thi đấu ngày mai";
+
+  loadFixtures();
+  delete hotListEl.dataset.started;
+  if (!hotListEl.classList.contains("hidden")) {
+    hotListEl.dataset.started = "1";
+    startHotScan();
+  }
+}
 
 function switchTab(tab) {
   const isAll = tab === "all";
@@ -47,13 +68,15 @@ upcomingOnlyCheckbox.addEventListener("change", () => startHotScan());
 
 async function loadFixtures() {
   listEl.innerHTML = '<div class="loading">Đang tải danh sách trận đấu...</div>';
+  const requestedDay = dayOffset;
   try {
-    const res = await fetch("/api/fixtures/today");
+    const res = await fetch(`/api/fixtures/today?dayOffset=${requestedDay}`);
     if (!res.ok) throw new Error("HTTP " + res.status);
     const fixtures = await res.json();
+    if (requestedDay !== dayOffset) return; // người dùng đã đổi ngày trong lúc chờ tải
 
     if (fixtures.length === 0) {
-      listEl.innerHTML = '<div class="empty">Không có trận đấu nào hôm nay.</div>';
+      listEl.innerHTML = '<div class="empty">Không có trận đấu nào.</div>';
       return;
     }
 
@@ -140,14 +163,14 @@ function startHotScan() {
   let foundCount = 0;
 
   const upcomingOnly = upcomingOnlyCheckbox.checked;
-  const source = new EventSource(`/api/hot-matches/stream?upcomingOnly=${upcomingOnly}`);
+  const source = new EventSource(`/api/hot-matches/stream?upcomingOnly=${upcomingOnly}&dayOffset=${dayOffset}`);
   currentHotSource = source;
 
   source.addEventListener("start", (e) => {
     const { total } = JSON.parse(e.data);
     progressText.textContent = `Đang quét 0/${total} trận...`;
     if (total === 0) {
-      progressText.textContent = "Không có trận nào thuộc các giải đấu lớn hôm nay.";
+      progressText.textContent = "Không có trận nào thuộc các giải đấu lớn.";
     }
   });
 
