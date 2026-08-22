@@ -58,6 +58,20 @@ var app = builder.Build();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+app.Use(async (ctx, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex) when (!ctx.Response.HasStarted)
+    {
+        app.Logger.LogError(ex, "Unhandled exception on {Path}", ctx.Request.Path);
+        ctx.Response.StatusCode = 500;
+        await ctx.Response.WriteAsJsonAsync(new { error = ex.GetType().Name, message = ex.Message });
+    }
+});
+
 var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 var apiCallLimiter = new SemaphoreSlim(maxConcurrentApiCalls);
 
@@ -197,7 +211,7 @@ app.Run();
 static string ReadApiFootballKey()
 {
     var envKey = Environment.GetEnvironmentVariable("API_FOOTBALL_KEY");
-    if (!string.IsNullOrWhiteSpace(envKey)) return envKey;
+    if (!string.IsNullOrWhiteSpace(envKey)) return envKey.Trim();
 
     var keyFilePath = Path.Combine(Directory.GetCurrentDirectory(), "apifootball_key.txt");
     if (File.Exists(keyFilePath))
