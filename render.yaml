@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: football-today-web
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: API_FOOTBALL_KEY
+        sync: false

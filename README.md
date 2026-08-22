@@ -20,3 +20,16 @@ dotnet run
 2. File `apifootball_key.txt` (cùng thư mục project, không commit vào git) chứa key
 
 Mặc định chạy tại `http://localhost:5108` (xem `Properties/launchSettings.json`).
+
+## Deploy lên internet
+
+App có backend (.NET) xử lý gọi API-Football, giấu key, cache, và stream SSE cho tab "Trận đáng chú ý" -
+**không thể** deploy dạng tĩnh lên GitHub Pages. Repo có sẵn `Dockerfile` + `render.yaml` để deploy lên
+[Render](https://render.com) (có gói free):
+
+1. Đăng nhập render.com bằng tài khoản GitHub.
+2. **New +** → **Blueprint** → chọn repo `getmoneycall` → Render tự đọc `render.yaml`.
+3. Khi được hỏi giá trị biến môi trường `API_FOOTBALL_KEY`, dán API key API-Football vào (không được commit key vào git).
+4. Bấm **Apply/Deploy**. Lần request đầu sau khi idle có thể mất ~30-60s để container khởi động lại (giới hạn của gói free).
+
+Sau khi deploy xong, Render cấp một URL dạng `https://football-today-web.onrender.com` để truy cập.
