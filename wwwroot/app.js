@@ -161,6 +161,7 @@ function startHotScan() {
   const progressFill = hotListEl.querySelector(".progress-fill");
   const resultsEl = document.getElementById("hot-results");
   let foundCount = 0;
+  let errorCount = 0;
 
   const upcomingOnly = upcomingOnlyCheckbox.checked;
   const source = new EventSource(`/api/hot-matches/stream?upcomingOnly=${upcomingOnly}&dayOffset=${dayOffset}`);
@@ -201,11 +202,18 @@ function startHotScan() {
     resultsEl.appendChild(card);
   });
 
+  source.addEventListener("item-error", () => {
+    errorCount++;
+  });
+
   source.addEventListener("done", () => {
     progressFill.style.width = "100%";
-    progressText.textContent = foundCount > 0
+    const base = foundCount > 0
       ? `Hoàn tất. Tìm thấy ${foundCount} trận đáng chú ý.`
       : "Hoàn tất. Không có trận nào thỏa điều kiện chênh lệch ≥ 3.";
+    progressText.textContent = errorCount > 0
+      ? `${base} (⚠️ ${errorCount} trận bị lỗi khi quét, có thể do giới hạn tần suất API - thử tải lại tab để quét lại các trận đó.)`
+      : base;
     source.close();
   });
 

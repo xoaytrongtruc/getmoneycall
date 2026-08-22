@@ -194,7 +194,7 @@ app.MapGet("/api/hot-matches/stream", async (HttpContext ctx, IHttpClientFactory
         }
         catch (Exception ex)
         {
-            await SendEventAsync("error", new { fixtureId = fixture.Fixture.Id, message = ex.Message });
+            await SendEventAsync("item-error", new { fixtureId = fixture.Fixture.Id, message = ex.Message });
         }
         finally
         {
@@ -294,8 +294,20 @@ async Task<List<T>> CallApiAsync<T>(HttpClient http, string path)
     await apiCallLimiter.WaitAsync();
     try
     {
-        var response = await http.GetFromJsonAsync<ApiResponse<T>>(path, jsonOptions);
-        return response?.Response ?? [];
+        // API-Football giới hạn 300 request/phút - khi nhiều lượt quét chạy dồn dập có thể
+        // bị 429 tạm thời, nên thử lại một lần sau khi chờ thay vì làm hỏng cả lượt quét.
+        for (var attempt = 1; ; attempt++)
+        {
+            using var httpResponse = await http.GetAsync(path);
+            if (httpResponse.StatusCode == System.Net.HttpStatusCode.TooManyRequests && attempt < 3)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2 * attempt));
+                continue;
+            }
+            httpResponse.EnsureSuccessStatusCode();
+            var response = await httpResponse.Content.ReadFromJsonAsync<ApiResponse<T>>(jsonOptions);
+            return response?.Response ?? [];
+        }
     }
     finally
     {
