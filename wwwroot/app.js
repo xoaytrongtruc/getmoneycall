@@ -95,7 +95,7 @@ async function loadFixtures() {
           <div class="score-or-time">${scoreLine}</div>
           <div class="team away"><span>${escapeHtml(f.awayName)}</span>${f.awayLogo ? `<img src="${f.awayLogo}" alt="">` : ""}</div>
         </div>`;
-      card.addEventListener("click", () => openMatchup(f.id, f.homeName, f.awayName));
+      card.addEventListener("click", () => openMatchup(f.id, f.status));
       listEl.appendChild(card);
     }
   } catch (err) {
@@ -124,7 +124,27 @@ function renderHistoryRows(matches) {
   }).join("");
 }
 
-async function openMatchup(fixtureId) {
+// Tính lại tổng xanh/đỏ theo một mức tài/xỉu tùy chỉnh (thay cho mốc cố định 2.5):
+// n = tổng bàn thắng trận cũ - mức tài/xỉu nhập vào.
+// n > 0 (tài): đỏ += 1 nếu n > 0.25, ngược lại đỏ += 0.5.
+// n < 0 (xỉu): xanh += 1 nếu n < -0.25, ngược lại xanh += 0.5.
+// n = 0: huề (push), không tính bên nào - giống luật tài/xỉu mức nguyên.
+function computeWeightedStats(matches, line) {
+  let green = 0;
+  let red = 0;
+  for (const m of matches) {
+    if (m.homeGoals === null || m.awayGoals === null) continue;
+    const n = (m.homeGoals + m.awayGoals) - line;
+    if (n > 0) {
+      red += n <= 0.25 ? 0.5 : 1;
+    } else if (n < 0) {
+      green += n >= -0.25 ? 0.5 : 1;
+    }
+  }
+  return { green, red };
+}
+
+async function openMatchup(fixtureId, status) {
   overlay.classList.remove("hidden");
   modalContent.innerHTML = '<div class="loading">Đang tải thống kê...</div>';
   try {
@@ -132,7 +152,16 @@ async function openMatchup(fixtureId) {
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
 
+    const ouTool = status === "NS" ? `
+      <div class="ou-tool">
+        <label for="ou-line">Tài/xỉu hiện tại:</label>
+        <input type="number" step="0.25" id="ou-line" placeholder="VD: 2.75" />
+        <button id="ou-update">Update chênh lệch</button>
+      </div>
+      <div id="ou-result"></div>` : "";
+
     modalContent.innerHTML = `
+      ${ouTool}
       <div class="section-title">${escapeHtml(data.teamA.name)} - 10 trận gần nhất</div>
       ${renderHistoryRows(data.teamA.matches)}
 
@@ -142,6 +171,27 @@ async function openMatchup(fixtureId) {
       <div class="section-title">Đối đầu ${escapeHtml(data.teamA.name)} vs ${escapeHtml(data.teamB.name)} - 10 trận gần nhất</div>
       ${renderHistoryRows(data.headToHead.matches)}
     `;
+
+    if (status === "NS") {
+      const lineInput = document.getElementById("ou-line");
+      const resultEl = document.getElementById("ou-result");
+      document.getElementById("ou-update").addEventListener("click", () => {
+        const line = parseFloat(lineInput.value);
+        if (Number.isNaN(line)) {
+          resultEl.innerHTML = '<div class="error">Nhập số tài/xỉu hợp lệ (VD: 2.5, 2.75).</div>';
+          return;
+        }
+        const a = computeWeightedStats(data.teamA.matches, line);
+        const b = computeWeightedStats(data.teamB.matches, line);
+        const h = computeWeightedStats(data.headToHead.matches, line);
+        resultEl.innerHTML = `
+          <div class="stat-badges">
+            ${statBadge(escapeHtml(data.teamA.name), a)}
+            ${statBadge(escapeHtml(data.teamB.name), b)}
+            ${statBadge("Đối đầu", h)}
+          </div>`;
+      });
+    }
   } catch (err) {
     modalContent.innerHTML = `<div class="error">Lỗi tải dữ liệu: ${escapeHtml(err.message)}</div>`;
   }
@@ -198,7 +248,7 @@ function startHotScan() {
         ${statBadge(escapeHtml(m.awayName), m.awayStats)}
         ${statBadge("Đối đầu", m.h2hStats)}
       </div>`;
-    card.addEventListener("click", () => openMatchup(m.id));
+    card.addEventListener("click", () => openMatchup(m.id, m.status));
     resultsEl.appendChild(card);
   });
 
