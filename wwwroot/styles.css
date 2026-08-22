@@ -256,14 +256,33 @@ main {
 
 .hot-card { cursor: pointer; }
 
-.stat-badges {
+.card-bottom-row {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 10px;
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--border);
 }
+
+.stat-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.card-ou-tool {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: none;
+  flex-shrink: 0;
+}
+.card-ou-tool input.ou-line { width: 80px; }
+.card-ou-tool button.ou-update { padding: 6px 10px; }
 .stat-badge {
   font-size: 0.75rem;
   color: var(--muted);

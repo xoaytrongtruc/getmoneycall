@@ -243,12 +243,58 @@ function startHotScan() {
         <div class="score-or-time">vs</div>
         <div class="team away"><span>${escapeHtml(m.awayName)}</span>${m.awayLogo ? `<img src="${m.awayLogo}" alt="">` : ""}</div>
       </div>
-      <div class="stat-badges">
-        ${statBadge(escapeHtml(m.homeName), m.homeStats)}
-        ${statBadge(escapeHtml(m.awayName), m.awayStats)}
-        ${statBadge("Đối đầu", m.h2hStats)}
+      <div class="card-bottom-row">
+        <div class="stat-badges">
+          ${statBadge(escapeHtml(m.homeName), m.homeStats)}
+          ${statBadge(escapeHtml(m.awayName), m.awayStats)}
+          ${statBadge("Đối đầu", m.h2hStats)}
+        </div>
+        ${m.status === "NS" ? `
+        <div class="ou-tool card-ou-tool">
+          <input type="number" step="0.25" class="ou-line" placeholder="Tài/xỉu" />
+          <button type="button" class="ou-update">Update</button>
+        </div>` : ""}
       </div>`;
     card.addEventListener("click", () => openMatchup(m.id, m.status));
+
+    if (m.status === "NS") {
+      let matchupCache = null;
+      const badgesEl = card.querySelector(".stat-badges");
+      const lineInput = card.querySelector(".ou-line");
+      const updateBtn = card.querySelector(".ou-update");
+      const stopClickBubble = (ev) => ev.stopPropagation();
+      lineInput.addEventListener("click", stopClickBubble);
+      updateBtn.addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        const line = parseFloat(lineInput.value);
+        if (Number.isNaN(line)) {
+          badgesEl.innerHTML = '<span class="error">Nhập số tài/xỉu hợp lệ (VD: 2.5, 2.75).</span>';
+          return;
+        }
+        if (!matchupCache) {
+          updateBtn.disabled = true;
+          badgesEl.innerHTML = '<span class="loading">Đang tính lại...</span>';
+          try {
+            const res = await fetch(`/api/matchup/${m.id}`);
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            matchupCache = await res.json();
+          } catch (err) {
+            badgesEl.innerHTML = `<span class="error">Lỗi tải dữ liệu: ${escapeHtml(err.message)}</span>`;
+            updateBtn.disabled = false;
+            return;
+          }
+          updateBtn.disabled = false;
+        }
+        const a = computeWeightedStats(matchupCache.teamA.matches, line);
+        const b = computeWeightedStats(matchupCache.teamB.matches, line);
+        const h = computeWeightedStats(matchupCache.headToHead.matches, line);
+        badgesEl.innerHTML = `
+          ${statBadge(escapeHtml(m.homeName), a)}
+          ${statBadge(escapeHtml(m.awayName), b)}
+          ${statBadge("Đối đầu", h)}`;
+      });
+    }
+
     resultsEl.appendChild(card);
   });
 
