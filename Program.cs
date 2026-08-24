@@ -295,7 +295,10 @@ async Task<List<MatchDto>> GetTeamLast10Async(HttpClient http, int teamId)
         return cached.Data;
 
     var matches = await FetchLastNWithScoreAsync(http, batchSize => $"/fixtures?team={teamId}&last={batchSize}", 10);
-    teamHistoryCache[teamId] = new CacheEntry<List<MatchDto>>(matches, DateTime.UtcNow);
+    // Không cache kết quả rỗng lâu - tránh 1 lần lỗi/chập chờn tạm thời của API bị "kẹt"
+    // suốt cả cacheTtl (90 phút), khiến 1 đội trông như không có dữ liệu dù thực tế có.
+    if (matches.Count > 0)
+        teamHistoryCache[teamId] = new CacheEntry<List<MatchDto>>(matches, DateTime.UtcNow);
     return matches;
 }
 
@@ -306,7 +309,8 @@ async Task<List<MatchDto>> GetHeadToHeadLast10Async(HttpClient http, int teamAId
         return cached.Data;
 
     var matches = await FetchLastNWithScoreAsync(http, batchSize => $"/fixtures/headtohead?h2h={teamAId}-{teamBId}&last={batchSize}", 10);
-    h2hCache[key] = new CacheEntry<List<MatchDto>>(matches, DateTime.UtcNow);
+    if (matches.Count > 0)
+        h2hCache[key] = new CacheEntry<List<MatchDto>>(matches, DateTime.UtcNow);
     return matches;
 }
 
