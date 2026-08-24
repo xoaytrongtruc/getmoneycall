@@ -9,6 +9,10 @@ const string ApiFootballBaseUrl = "https://v3.football.api-sports.io";
 const string Timezone = "Asia/Ho_Chi_Minh";
 var cacheTtl = TimeSpan.FromMinutes(20);
 var maxConcurrentApiCalls = 6;
+// API-Football giới hạn 300 request/phút - tự giới hạn thấp hơn một chút để không bao giờ
+// dính 429, thay vì phải giới hạn số giải đấu được quét. Quét nhiều trận hơn chỉ mất thêm
+// thời gian (request bị giãn ra theo cửa sổ trượt 1 phút) chứ không lỗi.
+var maxRequestsPerMinute = 250;
 
 // Các giải đấu lớn được quét cho tính năng "trận đáng chú ý" - giới hạn để tiết kiệm quota API.
 var majorLeagueIds = new HashSet<int>
@@ -74,6 +78,8 @@ app.Use(async (ctx, next) =>
 
 var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 var apiCallLimiter = new SemaphoreSlim(maxConcurrentApiCalls);
+var requestTimestamps = new Queue<DateTime>();
+var rateLimitGate = new SemaphoreSlim(1);
 
 var teamHistoryCache = new ConcurrentDictionary<int, CacheEntry<List<MatchDto>>>();
 var h2hCache = new ConcurrentDictionary<string, CacheEntry<List<MatchDto>>>();
@@ -289,6 +295,36 @@ async Task<List<MatchDto>> FetchLastNWithScoreAsync(HttpClient http, Func<int, s
     return withScore;
 }
 
+// Cửa sổ trượt 1 phút: chỉ cho request đi tiếp nếu chưa đủ maxRequestsPerMinute lần gọi
+// trong 60 giây gần nhất, ngược lại chờ đến khi có chỗ trống. Quét nhiều giải/trận hơn
+// chỉ khiến việc quét mất thêm thời gian chứ không bao giờ vượt giới hạn của API.
+async Task WaitForRateLimitSlotAsync()
+{
+    while (true)
+    {
+        TimeSpan? waitTime = null;
+        await rateLimitGate.WaitAsync();
+        try
+        {
+            var cutoff = DateTime.UtcNow - TimeSpan.FromMinutes(1);
+            while (requestTimestamps.Count > 0 && requestTimestamps.Peek() < cutoff)
+                requestTimestamps.Dequeue();
+
+            if (requestTimestamps.Count < maxRequestsPerMinute)
+            {
+                requestTimestamps.Enqueue(DateTime.UtcNow);
+                return;
+            }
+            waitTime = (requestTimestamps.Peek() + TimeSpan.FromMinutes(1)) - DateTime.UtcNow;
+        }
+        finally
+        {
+            rateLimitGate.Release();
+        }
+        await Task.Delay(waitTime.Value > TimeSpan.Zero ? waitTime.Value : TimeSpan.FromMilliseconds(200));
+    }
+}
+
 async Task<List<T>> CallApiAsync<T>(HttpClient http, string path)
 {
     await apiCallLimiter.WaitAsync();
@@ -298,6 +334,7 @@ async Task<List<T>> CallApiAsync<T>(HttpClient http, string path)
         // bị 429 tạm thời, nên thử lại một lần sau khi chờ thay vì làm hỏng cả lượt quét.
         for (var attempt = 1; ; attempt++)
         {
+            await WaitForRateLimitSlotAsync();
             using var httpResponse = await http.GetAsync(path);
             if (httpResponse.StatusCode == System.Net.HttpStatusCode.TooManyRequests && attempt < 3)
             {
