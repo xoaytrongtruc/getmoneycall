@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 var ApiFootballKey = ReadApiFootballKey();
 const string ApiFootballBaseUrl = "https://v3.football.api-sports.io";
 const string Timezone = "Asia/Ho_Chi_Minh";
-var cacheTtl = TimeSpan.FromMinutes(20);
+var cacheTtl = TimeSpan.FromMinutes(90);
 var maxConcurrentApiCalls = 6;
 // API-Football giới hạn 300 request/phút - tự giới hạn thấp hơn một chút để không bao giờ
 // dính 429, thay vì phải giới hạn số giải đấu được quét. Quét nhiều trận hơn chỉ mất thêm
@@ -48,7 +48,40 @@ var majorLeagueIds = new HashSet<int>
     292,         // South Korea: K League 1
     169,         // China: Super League
     188,         // Australia: A-League
-    2, 3, 848    // UEFA Champions/Europa/Conference League
+    2, 3, 848,   // UEFA Champions/Europa/Conference League
+
+    // +30 giải theo thứ tự FIFA World Ranking (8/2026), lấy giải cao nhất của quốc gia
+    // chưa có trong danh sách trên, đi từ hạng cao xuống thấp cho đến khi đủ 30 giải.
+    200,         // Morocco (hạng 6): Botola Pro
+    403,         // Senegal (18): Ligue 1
+    268,         // Uruguay (20): Primera División
+    290,         // Iran (22): Persian Gulf Pro League
+    233,         // Egypt (24): Premier League
+    242,         // Ecuador (25): Liga Pro
+    399,         // Nigeria (26): NPFL
+    186,         // Algeria (29): Ligue 1
+    479,         // Canada (30): Canadian Premier League
+    386,         // Ivory Coast (31): Ligue 1
+    250, 252,    // Paraguay (34): División Profesional (Apertura, Clausura)
+    110,         // Wales (38): Premier League
+    271,         // Hungary (39): NB I
+    286,         // Serbia (40): Super Liga
+    844,         // DR Congo (41): Ligue 1
+    411,         // Cameroon (43): Elite One
+    304,         // Panama (44): Liga Panameña de Fútbol
+    332,         // Slovakia (45): Super Liga
+    299,         // Venezuela (47): Primera División
+    345,         // Czechia (48): Czech Liga
+    281,         // Peru (50): Primera División
+    162,         // Costa Rica (51): Primera División
+    283,         // Romania (52): Liga I
+    598,         // Mali (53): Première Division
+    288,         // South Africa (54): Premier Soccer League
+    357,         // Republic of Ireland (55): Premier Division
+    373,         // Slovenia (56): 1. SNL
+    202,         // Tunisia (57): Ligue 1
+    305,         // Qatar (59): Stars League
+    369          // Uzbekistan (60): Super League
 };
 
 var builder = WebApplication.CreateBuilder(args);
