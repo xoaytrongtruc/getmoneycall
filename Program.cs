@@ -81,7 +81,19 @@ var majorLeagueIds = new HashSet<int>
     373,         // Slovenia (56): 1. SNL
     202,         // Tunisia (57): Ligue 1
     305,         // Qatar (59): Stars League
-    369          // Uzbekistan (60): Super League
+    369,         // Uzbekistan (60): Super League
+
+    // +10 giải nữa theo thứ tự FIFA World Ranking (70 -> 80 giải).
+    315,         // Bosnia and Herzegovina (61): Premijer Liga
+    423,         // Burkina Faso (62): Ligue 1
+    542,         // Iraq (63): Iraqi League
+    570,         // Ghana (65): Premier League
+    234,         // Honduras (66): Liga Nacional
+    310,         // Albania (67): Superliga
+    301,         // United Arab Emirates (68): Pro League
+    371,         // North Macedonia (69): First League
+    408,         // Northern Ireland (70): Premiership
+    322          // Jamaica (71, thay Cabo Verde hạng 64 - không có dữ liệu giải trong API): Premier League
 };
 
 var builder = WebApplication.CreateBuilder(args);
