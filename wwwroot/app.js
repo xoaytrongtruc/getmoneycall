@@ -129,17 +129,21 @@ function renderHistoryRows(matches) {
   }).join("");
 }
 
-// Tính lại tổng xanh/đỏ theo một mức tài/xỉu tùy chỉnh (thay cho mốc cố định 2.5):
-// n = tổng bàn thắng trận cũ - mức tài/xỉu nhập vào.
+// Tính lại tổng xanh/đỏ theo một mức tài/xỉu tùy chỉnh (thay cho mốc cố định 2.5 cả trận
+// hoặc 0.5 hiệp 1): n = tổng bàn thắng trận cũ (cả trận hoặc hiệp 1) - mức tài/xỉu nhập vào.
 // n > 0 (tài): đỏ += 1 nếu n > 0.25, ngược lại đỏ += 0.5.
 // n < 0 (xỉu): xanh += 1 nếu n < -0.25, ngược lại xanh += 0.5.
 // n = 0: huề (push), không tính bên nào - giống luật tài/xỉu mức nguyên.
-function computeWeightedStats(matches, line) {
+function computeWeightedStats(matches, line, period = "full") {
+  const homeKey = period === "half" ? "homeHtGoals" : "homeGoals";
+  const awayKey = period === "half" ? "awayHtGoals" : "awayGoals";
   let green = 0;
   let red = 0;
   for (const m of matches) {
-    if (m.homeGoals === null || m.awayGoals === null) continue;
-    const n = (m.homeGoals + m.awayGoals) - line;
+    const homeGoals = m[homeKey];
+    const awayGoals = m[awayKey];
+    if (homeGoals === null || homeGoals === undefined || awayGoals === null || awayGoals === undefined) continue;
+    const n = (homeGoals + awayGoals) - line;
     if (n > 0) {
       red += n <= 0.25 ? 0.5 : 1;
     } else if (n < 0) {
@@ -159,11 +163,17 @@ async function openMatchup(fixtureId, status) {
 
     const ouTool = status === "NS" ? `
       <div class="ou-tool">
-        <label for="ou-line">Tài/xỉu hiện tại:</label>
+        <label for="ou-line">Tài/xỉu cả trận hiện tại:</label>
         <input type="number" step="0.25" id="ou-line" placeholder="VD: 2.75" />
         <button id="ou-update">Update chênh lệch</button>
       </div>
-      <div id="ou-result"></div>` : "";
+      <div id="ou-result"></div>
+      <div class="ou-tool">
+        <label for="ou-line-ht">Tài/xỉu hiệp 1 hiện tại:</label>
+        <input type="number" step="0.25" id="ou-line-ht" placeholder="VD: 0.75" />
+        <button id="ou-update-ht">Update chênh lệch hiệp 1</button>
+      </div>
+      <div id="ou-result-ht"></div>` : "";
 
     modalContent.innerHTML = `
       ${ouTool}
@@ -190,6 +200,25 @@ async function openMatchup(fixtureId, status) {
         const b = computeWeightedStats(data.teamB.matches, line);
         const h = computeWeightedStats(data.headToHead.matches, line);
         resultEl.innerHTML = `
+          <div class="stat-badges">
+            ${statBadge(escapeHtml(data.teamA.name), a)}
+            ${statBadge(escapeHtml(data.teamB.name), b)}
+            ${statBadge("Đối đầu", h)}
+          </div>`;
+      });
+
+      const lineInputHt = document.getElementById("ou-line-ht");
+      const resultElHt = document.getElementById("ou-result-ht");
+      document.getElementById("ou-update-ht").addEventListener("click", () => {
+        const line = parseFloat(lineInputHt.value);
+        if (Number.isNaN(line)) {
+          resultElHt.innerHTML = '<div class="error">Nhập số tài/xỉu hợp lệ (VD: 0.5, 0.75).</div>';
+          return;
+        }
+        const a = computeWeightedStats(data.teamA.matches, line, "half");
+        const b = computeWeightedStats(data.teamB.matches, line, "half");
+        const h = computeWeightedStats(data.headToHead.matches, line, "half");
+        resultElHt.innerHTML = `
           <div class="stat-badges">
             ${statBadge(escapeHtml(data.teamA.name), a)}
             ${statBadge(escapeHtml(data.teamB.name), b)}
@@ -249,7 +278,7 @@ function startHotScan() {
         <div class="team away"><span>${escapeHtml(m.awayName)}</span>${m.awayLogo ? `<img src="${m.awayLogo}" alt="">` : ""}</div>
       </div>
       <div class="card-bottom-row">
-        <div class="stat-badges">
+        <div class="stat-badges stat-badges-full">
           ${statBadge(escapeHtml(m.homeName), m.homeStats)}
           ${statBadge(escapeHtml(m.awayName), m.awayStats)}
           ${statBadge("Đối đầu", m.h2hStats)}
@@ -262,20 +291,35 @@ function startHotScan() {
       </div>
       <div class="card-bottom-row half-stats-row">
         <span class="half-label">Hiệp 1 (0.5):</span>
-        <div class="stat-badges">
+        <div class="stat-badges stat-badges-half">
           ${statBadge(escapeHtml(m.homeName), m.homeHtStats)}
           ${statBadge(escapeHtml(m.awayName), m.awayHtStats)}
           ${statBadge("Đối đầu", m.h2hHtStats)}
         </div>
+        ${m.status === "NS" ? `
+        <div class="ou-tool card-ou-tool">
+          <input type="number" step="0.25" class="ou-line-ht" placeholder="Tài/xỉu H1" />
+          <button type="button" class="ou-update-ht">Update</button>
+        </div>` : ""}
       </div>`;
     card.addEventListener("click", () => openMatchup(m.id, m.status));
 
     if (m.status === "NS") {
       let matchupCache = null;
-      const badgesEl = card.querySelector(".stat-badges");
+      const stopClickBubble = (ev) => ev.stopPropagation();
+
+      async function ensureMatchupCache(targetEl) {
+        if (matchupCache) return matchupCache;
+        targetEl.innerHTML = '<span class="loading">Đang tính lại...</span>';
+        const res = await fetch(`/api/matchup/${m.id}`);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        matchupCache = await res.json();
+        return matchupCache;
+      }
+
+      const badgesEl = card.querySelector(".stat-badges-full");
       const lineInput = card.querySelector(".ou-line");
       const updateBtn = card.querySelector(".ou-update");
-      const stopClickBubble = (ev) => ev.stopPropagation();
       lineInput.addEventListener("click", stopClickBubble);
       updateBtn.addEventListener("click", async (ev) => {
         ev.stopPropagation();
@@ -284,27 +328,49 @@ function startHotScan() {
           badgesEl.innerHTML = '<span class="error">Nhập số tài/xỉu hợp lệ (VD: 2.5, 2.75).</span>';
           return;
         }
-        if (!matchupCache) {
+        try {
           updateBtn.disabled = true;
-          badgesEl.innerHTML = '<span class="loading">Đang tính lại...</span>';
-          try {
-            const res = await fetch(`/api/matchup/${m.id}`);
-            if (!res.ok) throw new Error("HTTP " + res.status);
-            matchupCache = await res.json();
-          } catch (err) {
-            badgesEl.innerHTML = `<span class="error">Lỗi tải dữ liệu: ${escapeHtml(err.message)}</span>`;
-            updateBtn.disabled = false;
-            return;
-          }
+          const data = await ensureMatchupCache(badgesEl);
+          const a = computeWeightedStats(data.teamA.matches, line);
+          const b = computeWeightedStats(data.teamB.matches, line);
+          const h = computeWeightedStats(data.headToHead.matches, line);
+          badgesEl.innerHTML = `
+            ${statBadge(escapeHtml(m.homeName), a)}
+            ${statBadge(escapeHtml(m.awayName), b)}
+            ${statBadge("Đối đầu", h)}`;
+        } catch (err) {
+          badgesEl.innerHTML = `<span class="error">Lỗi tải dữ liệu: ${escapeHtml(err.message)}</span>`;
+        } finally {
           updateBtn.disabled = false;
         }
-        const a = computeWeightedStats(matchupCache.teamA.matches, line);
-        const b = computeWeightedStats(matchupCache.teamB.matches, line);
-        const h = computeWeightedStats(matchupCache.headToHead.matches, line);
-        badgesEl.innerHTML = `
-          ${statBadge(escapeHtml(m.homeName), a)}
-          ${statBadge(escapeHtml(m.awayName), b)}
-          ${statBadge("Đối đầu", h)}`;
+      });
+
+      const htBadgesEl = card.querySelector(".stat-badges-half");
+      const lineInputHt = card.querySelector(".ou-line-ht");
+      const updateBtnHt = card.querySelector(".ou-update-ht");
+      lineInputHt.addEventListener("click", stopClickBubble);
+      updateBtnHt.addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        const line = parseFloat(lineInputHt.value);
+        if (Number.isNaN(line)) {
+          htBadgesEl.innerHTML = '<span class="error">Nhập số tài/xỉu hợp lệ (VD: 0.5, 0.75).</span>';
+          return;
+        }
+        try {
+          updateBtnHt.disabled = true;
+          const data = await ensureMatchupCache(htBadgesEl);
+          const a = computeWeightedStats(data.teamA.matches, line, "half");
+          const b = computeWeightedStats(data.teamB.matches, line, "half");
+          const h = computeWeightedStats(data.headToHead.matches, line, "half");
+          htBadgesEl.innerHTML = `
+            ${statBadge(escapeHtml(m.homeName), a)}
+            ${statBadge(escapeHtml(m.awayName), b)}
+            ${statBadge("Đối đầu", h)}`;
+        } catch (err) {
+          htBadgesEl.innerHTML = `<span class="error">Lỗi tải dữ liệu: ${escapeHtml(err.message)}</span>`;
+        } finally {
+          updateBtnHt.disabled = false;
+        }
       });
     }
 
