@@ -180,7 +180,7 @@ main {
 .history-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 6px 0;
   border-bottom: 1px solid var(--border);
   font-size: 0.9rem;
@@ -196,15 +196,25 @@ main {
 .history-row .indicator-dot.green { background: var(--green); }
 .history-row .indicator-dot.red { background: var(--red); }
 .history-row .indicator-dot.none { background: var(--border); }
-.history-row {
-  gap: 6px;
+
+.ht-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding-left: 8px;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
 }
-.history-row .indicator-dot.half {
-  width: 6px;
-  height: 6px;
-  margin-left: -2px;
-  margin-right: 4px;
-  opacity: 0.9;
+.ht-indicator .ht-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.ht-indicator .ht-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
 .history-row .score {

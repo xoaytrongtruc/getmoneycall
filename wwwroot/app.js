@@ -119,12 +119,19 @@ function renderHistoryRows(matches) {
     const homeName = m.highlightHome ? `<b>${escapeHtml(m.homeName)}</b>` : escapeHtml(m.homeName);
     const awayName = m.highlightAway ? `<b>${escapeHtml(m.awayName)}</b>` : escapeHtml(m.awayName);
     const score = (m.homeGoals ?? "-") + " - " + (m.awayGoals ?? "-");
+    const htScore = (m.homeHtGoals ?? null) !== null && (m.awayHtGoals ?? null) !== null
+      ? `${m.homeHtGoals} - ${m.awayHtGoals}`
+      : "- - -";
     return `
       <div class="history-row">
         <span class="indicator-dot ${dotClass}" title="Cả trận (tài/xỉu 2.5)"></span>
-        <span class="indicator-dot half ${htDotClass}" title="Hiệp 1 (tài/xỉu 0.5)"></span>
         <span class="score">${score}</span>
         <span class="names">${homeName} vs ${awayName}</span>
+        <span class="ht-indicator" title="Hiệp 1 (tài/xỉu 0.5)">
+          <span class="ht-label">H1</span>
+          <span class="ht-score">${htScore}</span>
+          <span class="indicator-dot ${htDotClass}"></span>
+        </span>
       </div>`;
   }).join("");
 }
