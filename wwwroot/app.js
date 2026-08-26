@@ -112,12 +112,17 @@ function renderHistoryRows(matches) {
     if (m.homeGoals !== null && m.awayGoals !== null) {
       dotClass = m.over25 ? "red" : "green";
     }
+    let htDotClass = "none";
+    if (m.homeHtGoals !== null && m.awayHtGoals !== null && m.homeHtGoals !== undefined && m.awayHtGoals !== undefined) {
+      htDotClass = m.overHalf05 ? "red" : "green";
+    }
     const homeName = m.highlightHome ? `<b>${escapeHtml(m.homeName)}</b>` : escapeHtml(m.homeName);
     const awayName = m.highlightAway ? `<b>${escapeHtml(m.awayName)}</b>` : escapeHtml(m.awayName);
     const score = (m.homeGoals ?? "-") + " - " + (m.awayGoals ?? "-");
     return `
       <div class="history-row">
-        <span class="indicator-dot ${dotClass}"></span>
+        <span class="indicator-dot ${dotClass}" title="Cả trận (tài/xỉu 2.5)"></span>
+        <span class="indicator-dot half ${htDotClass}" title="Hiệp 1 (tài/xỉu 0.5)"></span>
         <span class="score">${score}</span>
         <span class="names">${homeName} vs ${awayName}</span>
       </div>`;
@@ -254,6 +259,14 @@ function startHotScan() {
           <input type="number" step="0.25" class="ou-line" placeholder="Tài/xỉu" />
           <button type="button" class="ou-update">Update</button>
         </div>` : ""}
+      </div>
+      <div class="card-bottom-row half-stats-row">
+        <span class="half-label">Hiệp 1 (0.5):</span>
+        <div class="stat-badges">
+          ${statBadge(escapeHtml(m.homeName), m.homeHtStats)}
+          ${statBadge(escapeHtml(m.awayName), m.awayHtStats)}
+          ${statBadge("Đối đầu", m.h2hHtStats)}
+        </div>
       </div>`;
     card.addEventListener("click", () => openMatchup(m.id, m.status));
 

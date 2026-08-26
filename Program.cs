@@ -182,7 +182,8 @@ app.MapGet("/api/matchup/{fixtureId:int}", async (int fixtureId, IHttpClientFact
 
 // Server-Sent Events: quét các trận thuộc giải đấu lớn trong ngày được chọn (dayOffset:
 // 0 = hôm nay, 1 = ngày mai...), báo tiến độ và trả về từng trận thỏa điều kiện
-// "1 trong 3 bảng có chênh lệch đỏ/xanh >= 3" ngay khi tính xong.
+// "1 trong 6 bảng (3 bảng cả trận mốc 2.5, 3 bảng hiệp 1 mốc 0.5) có chênh lệch đỏ/xanh >= 3"
+// ngay khi tính xong.
 app.MapGet("/api/hot-matches/stream", async (HttpContext ctx, IHttpClientFactory factory, bool upcomingOnly, int dayOffset) =>
 {
     ctx.Response.Headers.ContentType = "text/event-stream";
@@ -221,7 +222,15 @@ app.MapGet("/api/hot-matches/stream", async (HttpContext ctx, IHttpClientFactory
             var (awayGreen, awayRed) = CountGreenRed(awayHistory);
             var (h2hGreen, h2hRed) = CountGreenRed(h2h);
 
-            var maxDiff = new[] { Math.Abs(homeGreen - homeRed), Math.Abs(awayGreen - awayRed), Math.Abs(h2hGreen - h2hRed) }.Max();
+            var (homeHtGreen, homeHtRed) = CountGreenRedHalf(homeHistory);
+            var (awayHtGreen, awayHtRed) = CountGreenRedHalf(awayHistory);
+            var (h2hHtGreen, h2hHtRed) = CountGreenRedHalf(h2h);
+
+            var maxDiff = new[]
+            {
+                Math.Abs(homeGreen - homeRed), Math.Abs(awayGreen - awayRed), Math.Abs(h2hGreen - h2hRed),
+                Math.Abs(homeHtGreen - homeHtRed), Math.Abs(awayHtGreen - awayHtRed), Math.Abs(h2hHtGreen - h2hHtRed)
+            }.Max();
 
             if (maxDiff >= 3)
             {
@@ -239,7 +248,10 @@ app.MapGet("/api/hot-matches/stream", async (HttpContext ctx, IHttpClientFactory
                     awayLogo = awayTeam.Logo,
                     homeStats = new { green = homeGreen, red = homeRed },
                     awayStats = new { green = awayGreen, red = awayRed },
-                    h2hStats = new { green = h2hGreen, red = h2hRed }
+                    h2hStats = new { green = h2hGreen, red = h2hRed },
+                    homeHtStats = new { green = homeHtGreen, red = homeHtRed },
+                    awayHtStats = new { green = awayHtGreen, red = awayHtRed },
+                    h2hHtStats = new { green = h2hHtGreen, red = h2hHtRed }
                 });
             }
         }
@@ -414,6 +426,20 @@ static (int Green, int Red) CountGreenRed(List<MatchDto> matches)
     return (green, red);
 }
 
+// Giống CountGreenRed nhưng tính theo bàn thắng hiệp 1, mốc tài/xỉu 0.5 thay vì 2.5.
+static (int Green, int Red) CountGreenRedHalf(List<MatchDto> matches)
+{
+    var green = 0;
+    var red = 0;
+    foreach (var m in matches)
+    {
+        if (m.HomeHtGoals is null || m.AwayHtGoals is null) continue;
+        if (m.HomeHtGoals.Value + m.AwayHtGoals.Value > 0.5) red++;
+        else green++;
+    }
+    return (green, red);
+}
+
 static List<MatchDto> ToMatchDtos(List<FixtureResult> fixtures) =>
     fixtures
         .OrderByDescending(f => f.Fixture.Date)
@@ -425,7 +451,9 @@ static List<MatchDto> ToMatchDtos(List<FixtureResult> fixtures) =>
             f.Teams.Away.Id,
             f.Teams.Away.Name,
             f.Goals.Home,
-            f.Goals.Away))
+            f.Goals.Away,
+            f.Score?.HalfTime?.Home,
+            f.Score?.HalfTime?.Away))
         .ToList();
 
 static List<object> ApplyHighlight(List<MatchDto> matches, int? highlightTeamId) =>
@@ -440,6 +468,9 @@ static List<object> ApplyHighlight(List<MatchDto> matches, int? highlightTeamId)
         homeGoals = m.HomeGoals,
         awayGoals = m.AwayGoals,
         over25 = m.HomeGoals.HasValue && m.AwayGoals.HasValue && (m.HomeGoals.Value + m.AwayGoals.Value) > 2.5,
+        homeHtGoals = m.HomeHtGoals,
+        awayHtGoals = m.AwayHtGoals,
+        overHalf05 = m.HomeHtGoals.HasValue && m.AwayHtGoals.HasValue && (m.HomeHtGoals.Value + m.AwayHtGoals.Value) > 0.5,
         highlightHome = highlightTeamId.HasValue && m.HomeId == highlightTeamId,
         highlightAway = highlightTeamId.HasValue && m.AwayId == highlightTeamId
     }).ToList();
@@ -454,7 +485,9 @@ record MatchDto(
     int AwayId,
     string AwayName,
     int? HomeGoals,
-    int? AwayGoals
+    int? AwayGoals,
+    int? HomeHtGoals,
+    int? AwayHtGoals
 );
 
 record ApiResponse<T>(
@@ -465,7 +498,12 @@ record FixtureResult(
     [property: JsonPropertyName("fixture")] FixtureInfo Fixture,
     [property: JsonPropertyName("league")] LeagueInfo League,
     [property: JsonPropertyName("teams")] TeamsInfo Teams,
-    [property: JsonPropertyName("goals")] GoalsInfo Goals
+    [property: JsonPropertyName("goals")] GoalsInfo Goals,
+    [property: JsonPropertyName("score")] ScoreInfo? Score
+);
+
+record ScoreInfo(
+    [property: JsonPropertyName("halftime")] GoalsInfo? HalfTime
 );
 
 record FixtureInfo(

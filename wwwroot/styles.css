@@ -196,6 +196,16 @@ main {
 .history-row .indicator-dot.green { background: var(--green); }
 .history-row .indicator-dot.red { background: var(--red); }
 .history-row .indicator-dot.none { background: var(--border); }
+.history-row {
+  gap: 6px;
+}
+.history-row .indicator-dot.half {
+  width: 6px;
+  height: 6px;
+  margin-left: -2px;
+  margin-right: 4px;
+  opacity: 0.9;
+}
 
 .history-row .score {
   font-variant-numeric: tabular-nums;
@@ -283,6 +293,18 @@ main {
 }
 .card-ou-tool input.ou-line { width: 80px; }
 .card-ou-tool button.ou-update { padding: 6px 10px; }
+
+.half-stats-row {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top-style: dashed;
+}
+.half-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 .stat-badge {
   font-size: 0.75rem;
   color: var(--muted);
