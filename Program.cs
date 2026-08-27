@@ -95,7 +95,29 @@ var majorLeagueIds = new HashSet<int>
     301,         // United Arab Emirates (68): Pro League
     371,         // North Macedonia (69): First League
     408,         // Northern Ireland (70): Premiership
-    322          // Jamaica (71, thay Cabo Verde hạng 64 - không có dữ liệu giải trong API): Premier League
+    322,         // Jamaica (71, thay Cabo Verde hạng 64 - không có dữ liệu giải trong API): Premier League
+
+    // +20 giải nữa theo thứ tự FIFA World Ranking (80 -> 100 giải).
+    327,         // Georgia (72): Erovnuli Liga
+    387,         // Jordan (73): League
+    164,         // Iceland (74): Úrvalsdeild
+    244,         // Finland (75): Veikkausliiga
+    383,         // Israel (76): Ligat Ha'al
+    344,         // Bolivia (77): Primera División
+    664,         // Kosovo (78): Superliga
+    406,         // Oman (79): Professional League
+    355,         // Montenegro (80): First League
+    378,         // Guinea (81): Ligue 1
+    642,         // Curaçao (82): Curaçao Sekshon Pagá
+    425,         // Syria (83): Premier League
+    968,         // Gabon (84): Championnat D1
+    172,         // Bulgaria (85): First League
+    280,         // New Zealand (86): Premiership
+    397,         // Angola (87): Girabola
+    379,         // Haiti (88): Ligue Haïtienne
+    585,         // Uganda (89): Premier League
+    400,         // Zambia (90): Super League
+    417          // Bahrain (92, bỏ qua Trung Quốc hạng 91 vì đã có trong danh sách): Premier League
 };
 
 var builder = WebApplication.CreateBuilder(args);
