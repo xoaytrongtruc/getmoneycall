@@ -13,6 +13,8 @@ var maxConcurrentApiCalls = 6;
 // dính 429, thay vì phải giới hạn số giải đấu được quét. Quét nhiều trận hơn chỉ mất thêm
 // thời gian (request bị giãn ra theo cửa sổ trượt 1 phút) chứ không lỗi.
 var maxRequestsPerMinute = 250;
+// Ngưỡng chênh lệch xanh/đỏ để 1 trận được coi là "đáng chú ý".
+var hotDiffThreshold = 2;
 
 // Các giải đấu lớn được quét cho tính năng "trận đáng chú ý" - giới hạn để tiết kiệm quota API.
 var majorLeagueIds = new HashSet<int>
@@ -182,8 +184,8 @@ app.MapGet("/api/matchup/{fixtureId:int}", async (int fixtureId, IHttpClientFact
 
 // Server-Sent Events: quét các trận thuộc giải đấu lớn trong ngày được chọn (dayOffset:
 // 0 = hôm nay, 1 = ngày mai...), báo tiến độ và trả về từng trận thỏa điều kiện
-// "1 trong 6 bảng (3 bảng cả trận mốc 2.5, 3 bảng hiệp 1 mốc 0.5) có chênh lệch đỏ/xanh >= 3"
-// ngay khi tính xong.
+// "1 trong 6 bảng (3 bảng cả trận mốc 2.5, 3 bảng hiệp 1 mốc 0.5) có chênh lệch đỏ/xanh
+// >= hotDiffThreshold" ngay khi tính xong.
 app.MapGet("/api/hot-matches/stream", async (HttpContext ctx, IHttpClientFactory factory, bool upcomingOnly, int dayOffset) =>
 {
     ctx.Response.Headers.ContentType = "text/event-stream";
@@ -232,7 +234,7 @@ app.MapGet("/api/hot-matches/stream", async (HttpContext ctx, IHttpClientFactory
                 Math.Abs(homeHtGreen - homeHtRed), Math.Abs(awayHtGreen - awayHtRed), Math.Abs(h2hHtGreen - h2hHtRed)
             }.Max();
 
-            if (maxDiff >= 3)
+            if (maxDiff >= hotDiffThreshold)
             {
                 await SendEventAsync("match", new
                 {

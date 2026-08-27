@@ -11,6 +11,8 @@ const overlay = document.getElementById("overlay");
 const modalContent = document.getElementById("modal-content");
 let currentHotSource = null;
 let dayOffset = 0;
+const HOT_DIFF_THRESHOLD = 2; // phải khớp với hotDiffThreshold trong Program.cs
+tabHot.textContent = `🔥 Trận đáng chú ý (chênh lệch ≥ ${HOT_DIFF_THRESHOLD})`;
 
 document.getElementById("close-modal").addEventListener("click", closeModal);
 overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
@@ -240,7 +242,7 @@ async function openMatchup(fixtureId, status) {
 
 function statBadge(label, stats) {
   const diff = Math.abs(stats.green - stats.red);
-  const hot = diff >= 3 ? " hot" : "";
+  const hot = diff >= HOT_DIFF_THRESHOLD ? " hot" : "";
   return `<span class="stat-badge${hot}">${label}: <span class="dot green"></span>${stats.green} <span class="dot red"></span>${stats.red} (chênh ${diff})</span>`;
 }
 
@@ -392,7 +394,7 @@ function startHotScan() {
     progressFill.style.width = "100%";
     const base = foundCount > 0
       ? `Hoàn tất. Tìm thấy ${foundCount} trận đáng chú ý.`
-      : "Hoàn tất. Không có trận nào thỏa điều kiện chênh lệch ≥ 3.";
+      : `Hoàn tất. Không có trận nào thỏa điều kiện chênh lệch ≥ ${HOT_DIFF_THRESHOLD}.`;
     progressText.textContent = errorCount > 0
       ? `${base} (⚠️ ${errorCount} trận bị lỗi khi quét, có thể do giới hạn tần suất API - thử tải lại tab để quét lại các trận đó.)`
       : base;
